@@ -1,0 +1,31 @@
+default_install_hook_types:
+- pre-commit
+- commit-msg
+repos:
+- hooks:
+  - id: trailing-whitespace
+    exclude: ^external/
+  - id: check-added-large-files
+  - id: check-docstring-first
+    exclude: ^external/
+  - id: check-json
+  - id: check-toml
+  - id: check-yaml
+  repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v6.0.0
+- hooks:
+  - entry: env PYTHONPATH= pyrefly check
+    id: pyrefly-check
+    language: system
+    name: Pyrefly (type checking)
+    pass_filenames: true
+    files: ^(src|main_scripts|aux_scripts)/.*\.(py|pyi|ipynb)$
+  repo: https://github.com/facebook/pyrefly-pre-commit
+  rev: 0.48.2
+- hooks:
+  - args: []
+    id: conventional-pre-commit
+    stages:
+    - commit-msg
+  repo: https://github.com/compilerla/conventional-pre-commit
+  rev: v4.3.0
