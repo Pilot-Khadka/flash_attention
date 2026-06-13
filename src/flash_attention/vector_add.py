@@ -83,10 +83,65 @@ def test_add_kernel(
     z_pytorch = x + y
 
     torch.testing.assert_close(z_tri, z_pytorch, atol=atol, rtol=rtol)
-    print("Add test passed")
+    print("Numerical test passed")
+
+
+@triton.testing.perf_report(
+    triton.testing.Benchmark(
+        x_names=["size"],  # Argument names to use as an x-axis for the plot.
+        x_vals=[
+            2**i for i in range(12, 28, 1)
+        ],  # Different possible values for `x_name`.
+        x_log=True,  # x axis is logarithmic.
+        line_arg="provider",  # Argument name whose value corresponds to a different line in the plot.
+        line_vals=["triton", "torch"],  # Possible values for `line_arg`.
+        line_names=["Triton", "Torch"],  # Label name for the lines.
+        styles=[("blue", "-"), ("green", "-")],  # Line styles.
+        ylabel="GB/s",  # Label name for the y-axis.
+        plot_name="vector-add-performance",  # Name for the plot. Used also as a file name for saving the plot.
+        args={},  # Values for function arguments not in `x_names` and `y_name`.
+    )
+)
+def benchmark(size, provider):
+    quantiles = [0.5, 0.2, 0.8]
+    x = torch.rand(size, device=DEVICE)
+    y = torch.rand(size, device=DEVICE)
+
+    def operation():
+        return x + y
+
+    if provider == "torch":
+        median_ms, min_ms, max_ms = triton.testing.do_bench(
+            fn=operation,
+            quantiles=quantiles,
+        )
+    if provider == "triton":
+        median_ms, min_ms, max_ms = triton.testing.do_bench(
+            fn=operation,
+            quantiles=quantiles,
+        )
+
+    # calculate memory bandwidth
+    # 3 because
+    # read x
+    # read y
+    # write output
+    bytes_moved = 3 * x.numel() * x.element_size()
+
+    def to_gbps(time_ms):
+        seconds = time_ms / 1000
+        gigabytes = bytes_moved / 1e9
+        return gigabytes / seconds
+
+    return (
+        to_gbps(median_ms),
+        to_gbps(max_ms),
+        to_gbps(min_ms),
+    )
 
 
 if __name__ == "__main__":
-    test_add_kernel(size=1024)
-    test_add_kernel(size=1023)
-    test_add_kernel(size=1025)
+    test_add_kernel(size=(1024, 1024))
+    test_add_kernel(size=(1023, 1023))
+    test_add_kernel(size=(1025, 1025))
+    benchmark.run(print_data=True, show_plots=True)
